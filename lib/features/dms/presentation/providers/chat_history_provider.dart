@@ -119,7 +119,13 @@ class ChatHistoryNotifier extends ChangeNotifier {
         for (final m in loaded)
           if (m['id'] != null) m['id'].toString(),
       };
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.e(
+        'Failed to load chat history for channel $channelId',
+        tag: 'ChatHistoryNotifier',
+        error: e,
+        stackTrace: s,
+      );
       loadFailed = true;
     } finally {
       isLoading = false;
