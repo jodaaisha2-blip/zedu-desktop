@@ -365,7 +365,13 @@ class ChatHistoryNotifier extends ChangeNotifier {
           newMessages.length >= DmRepository.pageSize &&
           !newMessages.any(_isCleared);
       page = nextPage;
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.e(
+        'Failed to load older messages for channel $channelId',
+        tag: 'ChatHistoryNotifier',
+        error: e,
+        stackTrace: s,
+      );
       loadMoreFailed = true;
     } finally {
       isLoading = false;
