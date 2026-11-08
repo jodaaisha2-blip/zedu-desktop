@@ -11,6 +11,26 @@ class FakeWorkspaceNotifier extends WorkspaceNotifier {
   );
 }
 
+class _UnreadCountWorkspaceNotifier extends WorkspaceNotifier {
+  _UnreadCountWorkspaceNotifier(this.unreadCount);
+
+  final int unreadCount;
+
+  @override
+  WorkspaceState build() {
+    final workspace = Workspace(
+      id: '1',
+      name: 'Acme',
+      avatar: 'A',
+      unreadCount: unreadCount,
+    );
+    return WorkspaceState(
+      workspaces: [workspace],
+      selectedWorkspace: workspace,
+    );
+  }
+}
+
 class FailingSwitchNotifier extends WorkspaceNotifier {
   @override
   WorkspaceState build() => const WorkspaceState(
@@ -71,8 +91,52 @@ Widget buildSwitcherUnderTest({WorkspaceNotifier Function()? notifier}) {
   );
 }
 
+Future<void> openSwitcherWithUnreadCount(
+  WidgetTester tester,
+  int unreadCount,
+) async {
+  // The test font is wider than Roboto and overflows the fixed-width menu.
+  tester.platformDispatcher.textScaleFactorTestValue = 0.5;
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+  await tester.pumpWidget(
+    buildSwitcherUnderTest(
+      notifier: () => _UnreadCountWorkspaceNotifier(unreadCount),
+    ),
+  );
+  await tester.tap(find.text('Open menu'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   group('WorkspaceSwitcherList', () {
+    testWidgets('hides the unread badge when the count is zero', (
+      tester,
+    ) async {
+      await openSwitcherWithUnreadCount(tester, 0);
+
+      expect(find.text('0'), findsNothing);
+    });
+
+    testWidgets('displays the exact unread count of one', (tester) async {
+      await openSwitcherWithUnreadCount(tester, 1);
+
+      expect(find.text('1'), findsOneWidget);
+    });
+
+    testWidgets('displays the exact unread count of 99', (tester) async {
+      await openSwitcherWithUnreadCount(tester, 99);
+
+      expect(find.text('99'), findsOneWidget);
+    });
+
+    testWidgets('caps unread counts of 100 at 99+', (tester) async {
+      await openSwitcherWithUnreadCount(tester, 100);
+
+      expect(find.text('99+'), findsOneWidget);
+      expect(find.text('100'), findsNothing);
+    });
+
     testWidgets('Settings button opens the settings page', (tester) async {
       // The test font is wider than Roboto and overflows the fixed-width menu.
       tester.platformDispatcher.textScaleFactorTestValue = 0.5;
