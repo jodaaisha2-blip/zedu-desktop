@@ -4,11 +4,23 @@ import 'package:zedu/features/features.dart';
 import '../../../../../helpers/helpers.dart';
 
 class FakeWorkspaceNotifier extends WorkspaceNotifier {
+  FakeWorkspaceNotifier({this.unreadCount = 0});
+
+  final int unreadCount;
+
   @override
-  WorkspaceState build() => const WorkspaceState(
-    workspaces: [Workspace(id: '1', name: 'Acme', avatar: 'A')],
-    selectedWorkspace: Workspace(id: '1', name: 'Acme', avatar: 'A'),
-  );
+  WorkspaceState build() {
+    final workspace = Workspace(
+      id: '1',
+      name: 'Acme',
+      avatar: 'A',
+      unreadCount: unreadCount,
+    );
+    return WorkspaceState(
+      workspaces: [workspace],
+      selectedWorkspace: workspace,
+    );
+  }
 }
 
 class FailingSwitchNotifier extends WorkspaceNotifier {
@@ -35,7 +47,10 @@ class FakeUserProfileNotifier extends UserProfileNotifier {
   Future<List<TeamMember>> fetchOrganisationMembers() async => const [];
 }
 
-Widget buildSwitcherUnderTest({WorkspaceNotifier Function()? notifier}) {
+Widget buildSwitcherUnderTest({
+  WorkspaceNotifier Function()? notifier,
+  int unreadCount = 0,
+}) {
   final router = GoRouter(
     routes: [
       GoRoute(
@@ -64,7 +79,9 @@ Widget buildSwitcherUnderTest({WorkspaceNotifier Function()? notifier}) {
 
   return ProviderScope(
     overrides: [
-      workspaceProvider.overrideWith(notifier ?? FakeWorkspaceNotifier.new),
+      workspaceProvider.overrideWith(
+        notifier ?? (() => FakeWorkspaceNotifier(unreadCount: unreadCount)),
+      ),
       userProfileNotifierProvider.overrideWith(FakeUserProfileNotifier.new),
     ],
     child: MaterialApp.router(routerConfig: router),
@@ -73,6 +90,34 @@ Widget buildSwitcherUnderTest({WorkspaceNotifier Function()? notifier}) {
 
 void main() {
   group('WorkspaceSwitcherList', () {
+    for (final testCase in [
+      (count: 0, expectedText: null),
+      (count: 1, expectedText: '1'),
+      (count: 99, expectedText: '99'),
+      (count: 100, expectedText: '99+'),
+    ]) {
+      testWidgets(
+        'shows the expected unread badge for ${testCase.count} unread items',
+        (tester) async {
+          tester.platformDispatcher.textScaleFactorTestValue = 0.5;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+          await tester.pumpWidget(
+            buildSwitcherUnderTest(unreadCount: testCase.count),
+          );
+          await tester.tap(find.text('Open menu'));
+          await tester.pumpAndSettle();
+
+          if (testCase.expectedText == null) {
+            expect(find.text('0'), findsNothing);
+          } else {
+            expect(find.text(testCase.expectedText!), findsOneWidget);
+          }
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     testWidgets('Settings button opens the settings page', (tester) async {
       // The test font is wider than Roboto and overflows the fixed-width menu.
       tester.platformDispatcher.textScaleFactorTestValue = 0.5;
